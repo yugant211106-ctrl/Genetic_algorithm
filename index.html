@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Genetic Algorithm: TSP Optimization</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f4f7f6;
+            color: #1e293b;
+        }
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        /* Custom UI Styling */
+        .glass-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            border-radius: 12px;
+        }
+        
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            background-color: #fafafa;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.02);
+            cursor: crosshair;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            touch-action: none; /* Prevent scrolling when tapping on canvas */
+        }
+
+        /* Custom Slider Styling */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #cbd5e1;
+            border-radius: 2px;
+        }
+        input[type=range]:focus {
+            outline: none;
+        }
+        
+        /* Status Message Box */
+        #messageBox {
+            transition: opacity 0.3s ease;
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8 flex flex-col items-center">
+
+    <div class="max-w-7xl w-full space-y-6">
+        <header class="glass-card p-6 md:p-8 relative overflow-hidden">
+            <div class="absolute top-0 right-0 w-64 h-64 bg-blue-500 opacity-5 rounded-full blur-3xl transform translate-x-1/2 -translate-y-1/2"></div>
+            <div class="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center">
+                <div>
+                    <h1 class="text-2xl md:text-3xl font-bold text-slate-800 tracking-tight">Genetic Algorithm Optimization</h1>
+                    <h2 class="text-slate-500 font-medium mt-1">Traveling Salesperson Problem (TSP) Visualizer</h2>
+                </div>
+                <div class="mt-4 md:mt-0 text-right md:text-left">
+                    <p class="text-xs text-slate-400 font-semibold uppercase tracking-wider">Project Submission Module</p>
+                    <p class="text-sm font-mono text-blue-600 mt-1">B.Tech // Semester VI</p>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Left Panel: Controls & Stats -->
+            <div class="lg:col-span-4 space-y-6 flex flex-col">
+                
+                <!-- Controls Card -->
+                <div class="glass-card p-6 space-y-5">
+                    <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wide border-b border-slate-100 pb-2">Hyperparameters</h3>
+                    
+                    <!-- Population Size -->
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="text-sm font-semibold text-slate-700">Population Size</label>
+                            <span id="popSizeVal" class="text-xs font-mono bg-slate-100 px-2 py-1 rounded text-slate-600">500</span>
+                        </div>
+                        <input type="range" id="popSize" min="50" max="2000" step="50" value="500" oninput="updateVal('popSizeVal', this.value)">
+                        <p class="text-[0.65rem] text-slate-400 mt-1">Candidates evaluated per generation.</p>
+                    </div>
+
+                    <!-- Mutation Rate -->
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="text-sm font-semibold text-slate-700">Mutation Rate</label>
+                            <span id="mutRateVal" class="text-xs font-mono bg-slate-100 px-2 py-1 rounded text-slate-600">5%</span>
+                        </div>
+                        <input type="range" id="mutRate" min="0" max="100" step="1" value="5" oninput="updateVal('mutRateVal', this.value + '%')">
+                        <p class="text-[0.65rem] text-slate-400 mt-1">Probability of random gene swapping.</p>
+                    </div>
+
+                    <!-- Max Generations -->
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="text-sm font-semibold text-slate-700">Max Generations</label>
+                            <span id="maxGenVal" class="text-xs font-mono bg-slate-100 px-2 py-1 rounded text-slate-600">1000</span>
+                        </div>
+                        <input type="range" id="maxGen" min="50" max="5000" step="50" value="1000" oninput="updateVal('maxGenVal', this.value)">
+                        <p class="text-[0.65rem] text-slate-400 mt-1">Termination condition for the algorithm.</p>
+                    </div>
+
+                    <hr class="border-slate-100">
+
+                    <!-- Actions -->
+                    <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wide border-b border-slate-100 pb-2">Environment Controls</h3>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button id="btnRandom" onclick="scatterCities()" class="py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold rounded-lg transition-colors border border-slate-300">
+                            Scatter Cities
+                        </button>
+                        <button id="btnClear" onclick="clearMap()" class="py-2 px-3 bg-red-50 hover:bg-red-100 text-red-600 text-sm font-semibold rounded-lg transition-colors border border-red-200">
+                            Clear Map
+                        </button>
+                    </div>
+                    
+                    <button id="btnStart" onclick="toggleEvolution()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-all shadow-md flex justify-center items-center">
+                        <svg id="iconPlay" class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <span id="btnStartText">Start Evolution</span>
+                    </button>
+                </div>
+
+                <!-- Real-time Statistics Card -->
+                <div class="glass-card p-6 flex-grow flex flex-col justify-between">
+                    <div>
+                        <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wide border-b border-slate-100 pb-2 mb-4">Real-time Metrics</h3>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <p class="text-xs text-slate-500 font-medium">Current Generation</p>
+                                <p id="statGen" class="text-2xl font-mono font-bold text-slate-800">0 <span class="text-sm text-slate-400 font-normal">/ 0</span></p>
+                            </div>
+                            
+                            <div>
+                                <p class="text-xs text-slate-500 font-medium">Shortest Distance Found</p>
+                                <p id="statDist" class="text-2xl font-mono font-bold text-emerald-600">---</p>
+                            </div>
+
+                            <div>
+                                <p class="text-xs text-slate-500 font-medium">Node Count (Cities)</p>
+                                <p id="statNodes" class="text-lg font-mono font-bold text-slate-700">0</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Progress Bar -->
+                    <div class="mt-6">
+                        <div class="flex justify-between text-xs font-semibold text-slate-500 mb-1">
+                            <span>Evolution Progress</span>
+                            <span id="statProgress">0%</span>
+                        </div>
+                        <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                            <div id="progressBar" class="bg-blue-500 h-2 rounded-full" style="width: 0%; transition: width 0.1s linear;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Visualization -->
+            <div class="lg:col-span-8 flex flex-col glass-card p-2 md:p-4">
+                
+                <!-- Notification / Alert Box inside visualization -->
+                <div id="messageBox" class="absolute top-8 left-1/2 transform -translate-x-1/2 z-20 bg-slate-800 text-white px-4 py-2 rounded-full text-sm font-semibold shadow-lg opacity-0 pointer-events-none">
+                    Message
+                </div>
+
+                <div class="canvas-container flex-grow aspect-square md:aspect-[4/3] lg:aspect-auto" id="canvasWrapper">
+                    <!-- Resolution is set internally via JS to handle DPI scaling -->
+                    <canvas id="tspCanvas"></canvas>
+                </div>
+                
+                <div class="pt-3 px-2 flex justify-between items-center text-xs text-slate-500 font-medium">
+                    <p>Interactive Map: Click anywhere on the grid to plot a custom city.</p>
+                    <p class="font-mono">Coordinates mapped internally</p>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        
+        // --- Core Variables ---
+        const canvas = document.getElementById('tspCanvas');
+        const ctx = canvas.getContext('2d');
+        const wrapper = document.getElementById('canvasWrapper');
+        
+        let cities = [];
+        let totalCities = 0;
+        
+        // GA State Variables
+        let population = [];
+        let fitness = [];
+        let bestPath = [];
+        let bestDistance = Infinity;
+        let globalBestDistance = Infinity; // To track the absolute best across generations
+        let globalBestPath = [];
+        
+        let generationCount = 0;
+        let maxGenerations = 1000;
+        let isRunning = false;
+        let animationFrameId;
+
+        // Configuration
+        const CITY_RADIUS = 6;
+        const INTERNAL_WIDTH = 1200;
+        const INTERNAL_HEIGHT = 800;
+
+        // UI update helper
+        function updateVal(id, val) {
+            document.getElementById(id).innerText = val;
+        }
+
+        // Display temporary messages
+        function showMessage(msg, isError = false) {
+            const box = document.getElementById('messageBox');
+            box.innerText = msg;
+            box.style.backgroundColor = isError ? '#ef4444' : '#1e293b';
+            box.style.opacity = '1';
+            setTimeout(() => { box.style.opacity = '0'; }, 3000);
+        }
+
+        // Initialize Canvas Resolution
+        function initCanvas() {
+            // Set internal resolution for crisp lines
+            canvas.width = INTERNAL_WIDTH;
+            canvas.height = INTERNAL_HEIGHT;
+            drawMap();
+        }
+
+        // --- Interaction Logic ---
+        
+        // Add city on click
+        canvas.addEventListener('mousedown', (e) => {
+            if (isRunning) return; // Prevent adding cities while running
+            const rect = canvas.getBoundingClientRect();
+            
+            // Map visual coordinates to internal canvas resolution
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            
+            const x = (e.clientX - rect.left) * scaleX;
+            const y = (e.clientY - rect.top) * scaleY;
+            
+            addCity(x, y);
+        });
+
+        function addCity(x, y) {
+            // Ensure city is within bounds with padding
+            const padding = CITY_RADIUS + 5;
+            const safeX = Math.max(padding, Math.min(INTERNAL_WIDTH - padding, x));
+            const safeY = Math.max(padding, Math.min(INTERNAL_HEIGHT - padding, y));
+            
+            cities.push({ x: safeX, y: safeY });
+            totalCities = cities.length;
+            document.getElementById('statNodes').innerText = totalCities;
+            resetGAState();
+            drawMap();
+        }
+
+        
+        function scatterCities() {
+            if (isRunning) return;
+            const count = 15; // Number of cities to scatter at once
+            const padding = 50;
+            for(let i=0; i<count; i++) {
+                const x = padding + Math.random() * (INTERNAL_WIDTH - padding * 2);
+                const y = padding + Math.random() * (INTERNAL_HEIGHT - padding * 2);
+                cities.push({x, y});
+            }
+            totalCities = cities.length;
+            document.getElementById('statNodes').innerText = totalCities;
+            resetGAState();
+            drawMap();
+            showMessage(`Added ${count} random cities.`);
+        }
+
+        function clearMap() {
+            if (isRunning) toggleEvolution(); // Stop if running
+            cities = [];
+            totalCities = 0;
+            document.getElementById('statNodes').innerText = '0';
+            resetGAState();
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            showMessage("Map cleared.");
+        }
+
+        function drawMap() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw Best Path First (so it's under the cities)
+            if (globalBestPath.length > 0 && totalCities > 0) {
+                ctx.beginPath();
+                ctx.strokeStyle = '#3b82f6'; // Blue-500
+                ctx.lineWidth = 3;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                
+                for (let i = 0; i < globalBestPath.length; i++) {
+                    const cityIdx = globalBestPath[i];
+                    const nextCityIdx = globalBestPath[(i + 1) % globalBestPath.length]; // Close the loop
+                    
+                    const p1 = cities[cityIdx];
+                    const p2 = cities[nextCityIdx];
+                    
+                    if (i === 0) ctx.moveTo(p1.x, p1.y);
+                    ctx.lineTo(p2.x, p2.y);
+                }
+                ctx.stroke();
+
+                // Draw transparent fill connecting nodes
+                ctx.fillStyle = 'rgba(59, 130, 246, 0.05)';
+                ctx.fill();
+            }
+
+            // Draw Cities
+            for (let i = 0; i < cities.length; i++) {
+                ctx.beginPath();
+                ctx.arc(cities[i].x, cities[i].y, CITY_RADIUS, 0, Math.PI * 2);
+                ctx.fillStyle = '#0f172a'; // Slate-900
+                ctx.fill();
+                
+                // Outer ring
+                ctx.beginPath();
+                ctx.arc(cities[i].x, cities[i].y, CITY_RADIUS + 3, 0, Math.PI * 2);
+                ctx.strokeStyle = '#e2e8f0';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+        }
+
+        
+        // Euclidean distance between two cities
+        function calcDistance(city1, city2) {
+            const dx = city1.x - city2.x;
+            const dy = city1.y - city2.y;
+            return Math.sqrt(dx * dx + dy * dy);
+        }
+
+        // Calculate total distance of a specific path (chromosome)
+        function calcTotalDistance(order) {
+            let sum = 0;
+            for (let i = 0; i < order.length - 1; i++) {
+                let cityAIndex = order[i];
+                let cityBIndex = order[i + 1];
+                sum += calcDistance(cities[cityAIndex], cities[cityBIndex]);
+            }
+            // Add distance from last back to first to complete the tour
+            sum += calcDistance(cities[order[order.length - 1]], cities[order[0]]);
+            return sum;
+        }
+
+        function resetGAState() {
+            population = [];
+            fitness = [];
+            bestPath = [];
+            globalBestPath = [];
+            bestDistance = Infinity;
+            globalBestDistance = Infinity;
+            generationCount = 0;
+            
+            // Reset UI Stats
+            document.getElementById('statGen').innerHTML = `0 <span class="text-sm text-slate-400 font-normal">/ 0</span>`;
+            document.getElementById('statDist').innerText = '---';
+            document.getElementById('progressBar').style.width = '0%';
+            document.getElementById('statProgress').innerText = '0%';
+        }
+
+        function initializePopulation() {
+            const popSize = parseInt(document.getElementById('popSize').value);
+            population = [];
+            
+            // Create a baseline order [0, 1, 2, ..., n-1]
+            let baseOrder = [];
+            for (let i = 0; i < totalCities; i++) {
+                baseOrder.push(i);
+            }
+
+            // Shuffle to create initial random population
+            for (let i = 0; i < popSize; i++) {
+                population.push(shuffle([...baseOrder]));
+            }
+        }
+
+        // Fisher-Yates Shuffle
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+
+        function calculateFitness() {
+            let currentRecord = Infinity;
+            
+            for (let i = 0; i < population.length; i++) {
+                let d = calcTotalDistance(population[i]);
+                
+                // Track best of current generation
+                if (d < currentRecord) {
+                    currentRecord = d;
+                    bestDistance = d;
+                    bestPath = [...population[i]];
+                }
+                
+                // Track global best across all generations
+                if (d < globalBestDistance) {
+                    globalBestDistance = d;
+                    globalBestPath = [...population[i]];
+                }
+                
+                // Fitness is inversely proportional to distance
+                // Adding 1 to avoid division by zero (though distance shouldn't be 0 here)
+                fitness[i] = 1 / (d + 1);
+            }
+        }
+
+        // Normalize fitness values to probabilities (0 to 1, summing to 1)
+        function normalizeFitness() {
+            let sum = 0;
+            for (let i = 0; i < fitness.length; i++) {
+                sum += fitness[i];
+            }
+            for (let i = 0; i < fitness.length; i++) {
+                fitness[i] = fitness[i] / sum;
+            }
+        }
+
+        // Select a parent based on fitness (Roulette Wheel Selection)
+        function selectParent() {
+            let index = 0;
+            let r = Math.random();
+            
+            while (r > 0 && index < fitness.length) {
+                r -= fitness[index];
+                index++;
+            }
+            index--;
+            return population[index];
+        }
+
+        // Order Crossover (OX1)
+        // Maintains permutation validity for TSP
+        function crossover(parentA, parentB) {
+            const start = Math.floor(Math.random() * parentA.length);
+            const end = start + Math.floor(Math.random() * (parentA.length - start));
+            
+            const child = new Array(parentA.length).fill(-1);
+            
+            // Copy swath from parentA
+            for (let i = start; i <= end; i++) {
+                child[i] = parentA[i];
+            }
+            
+            // Fill remaining from parentB
+            let currentIndex = 0;
+            for (let i = 0; i < parentB.length; i++) {
+                let city = parentB[i];
+                if (!child.includes(city)) {
+                    // Skip over the filled swath
+                    while (child[currentIndex] !== -1) {
+                        currentIndex++;
+                    }
+                    child[currentIndex] = city;
+                }
+            }
+            return child;
+        }
+
+        // Swap Mutation
+        function mutate(chromosome) {
+            const mutationRate = parseInt(document.getElementById('mutRate').value) / 100;
+            
+            for (let i = 0; i < chromosome.length; i++) {
+                if (Math.random() < mutationRate) {
+                    let indexA = Math.floor(Math.random() * chromosome.length);
+                    let indexB = (indexA + 1) % chromosome.length; // Swap with neighbor
+                    
+                    // Or swap with random: let indexB = Math.floor(Math.random() * chromosome.length);
+                    // Swapping with neighbor is often slightly better for local optimization in TSP
+                    
+                    // Swap
+                    let temp = chromosome[indexA];
+                    chromosome[indexA] = chromosome[indexB];
+                    chromosome[indexB] = temp;
+                }
+            }
+        }
+
+
+        function nextGeneration() {
+            const popSize = parseInt(document.getElementById('popSize').value);
+            let newPopulation = [];
+            
+            // Elitism: Keep the absolute best path unmodified in the new population
+            newPopulation.push([...globalBestPath]);
+            
+            for (let i = 1; i < popSize; i++) {
+                let parentA = selectParent();
+                let parentB = selectParent();
+                let child = crossover(parentA, parentB);
+                mutate(child);
+                newPopulation.push(child);
+            }
+            
+            population = newPopulation;
+            generationCount++;
+        }
+
+        function evolveLoop() {
+            if (!isRunning) return;
+            
+            // Compute a few generations per frame to speed up visualization
+            // For smaller populations, compute more generations per frame.
+            const popSize = population.length;
+            const gensPerFrame = popSize > 500 ? 1 : 3; 
+
+            for(let step = 0; step < gensPerFrame; step++) {
+                if(generationCount >= maxGenerations) break;
+                
+                calculateFitness();
+                normalizeFitness();
+                nextGeneration();
+            }
+
+            // Update UI
+            document.getElementById('statGen').innerHTML = `${generationCount} <span class="text-sm text-slate-400 font-normal">/ ${maxGenerations}</span>`;
+            document.getElementById('statDist').innerText = globalBestDistance.toFixed(2);
+            
+            let progress = (generationCount / maxGenerations) * 100;
+            document.getElementById('progressBar').style.width = `${progress}%`;
+            document.getElementById('statProgress').innerText = `${Math.floor(progress)}%`;
+
+            drawMap(); // Renders the globalBestPath
+
+            if (generationCount < maxGenerations) {
+                animationFrameId = requestAnimationFrame(evolveLoop);
+            } else {
+                // Evolution Complete
+                isRunning = false;
+                updateButtonState();
+                showMessage("Evolution Complete! Optimal path found.", false);
+            }
+        }
+
+        function toggleEvolution() {
+            if (totalCities < 3) {
+                showMessage("Please add at least 3 cities before starting.", true);
+                return;
+            }
+
+            if (isRunning) {
+                // Pause
+                isRunning = false;
+                cancelAnimationFrame(animationFrameId);
+                updateButtonState();
+            } else {
+                // Start / Resume
+                maxGenerations = parseInt(document.getElementById('maxGen').value);
+                
+                if (generationCount >= maxGenerations || population.length === 0) {
+                    resetGAState();
+                    initializePopulation();
+                }
+                
+                isRunning = true;
+                updateButtonState();
+                evolveLoop();
+            }
+        }
+
+        function updateButtonState() {
+            const btn = document.getElementById('btnStart');
+            const icon = document.getElementById('iconPlay');
+            const text = document.getElementById('btnStartText');
+            const inputs = document.querySelectorAll('input[type=range], #btnRandom');
+
+            if (isRunning) {
+                btn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                btn.classList.add('bg-amber-500', 'hover:bg-amber-600');
+                text.innerText = 'Pause Evolution';
+                // Pause icon
+                icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>`;
+                
+                // Disable controls
+                inputs.forEach(el => el.disabled = true);
+                inputs.forEach(el => el.classList.add('opacity-50', 'cursor-not-allowed'));
+            } else {
+                btn.classList.remove('bg-amber-500', 'hover:bg-amber-600');
+                btn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+                text.innerText = generationCount > 0 && generationCount < maxGenerations ? 'Resume Evolution' : 'Start Evolution';
+                // Play icon
+                icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>`;
+                
+                // Enable controls
+                inputs.forEach(el => el.disabled = false);
+                inputs.forEach(el => el.classList.remove('opacity-50', 'cursor-not-allowed'));
+            }
+        }
+
+        // Initialize on load
+        window.onload = () => {
+            initCanvas();
+            // Pre-seed some cities for demonstration
+            scatterCities();
+        };
+
+        // Handle window resize gracefully by Redrawing
+        window.addEventListener('resize', () => {
+            drawMap();
+        });
+
+    </script>
+</body>
+</html>
